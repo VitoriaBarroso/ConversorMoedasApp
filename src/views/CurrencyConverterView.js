@@ -1,7 +1,21 @@
 import React from 'react';
-import {StyleSheet,Text,View,TextInput,TouchableOpacity,ActivityIndicator,ScrollView,} from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useCurrencyViewModel } from '../viewmodels/useCurrencyViewModel';
+
+const formatCurrency = (value, currency) =>
+  new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency,
+  }).format(value);
 
 export function CurrencyConverterView() {
   const {
@@ -12,100 +26,132 @@ export function CurrencyConverterView() {
     toCurrency,
     setToCurrency,
     currencies,
-    convertedValue,
-    exchangeRate,
-    rateDate,
+    result,
     loading,
     loadingCurrencies,
     errorMessage,
+    currencyError,
+    loadCurrencies,
     convertCurrency,
-    swapCurrencies,
   } = useCurrencyViewModel();
 
-  const currencyKeys = Object.keys(currencies);
-  const targetCurrencyKeys = currencyKeys.filter((code) => ['CNY', 'EUR'].includes(code));
+  const currencyCodes = Object.keys(currencies);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Conversor de Moedas</Text>
-      <Text style={styles.subtitle}>BRL para Yuan Chinês (CNY) ou Euro (EUR) - API Frankfurter</Text>
-
- 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Valor em BRL:</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          placeholder="Ex: 100.00"
-          placeholderTextColor="#88a0c0"
-          value={amount}
-          onChangeText={setAmount}
-        />
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>CONVERSOR DE MOEDAS</Text>
+        <Text style={styles.title}>Conversor de moedas</Text>
+        <Text style={styles.subtitle}>Consulte taxas de referência da Frankfurter.</Text>
       </View>
 
-      {loadingCurrencies ? (
-        <ActivityIndicator size="small" color="#1e3a8a" />
-      ) : (
-        <View style={styles.pickerRow}>
-          <View style={styles.pickerContainer}>
-            <Text style={styles.label}>De:</Text>
-            <Picker
-              selectedValue={fromCurrency}
-              onValueChange={(itemValue) => setFromCurrency(itemValue)}
-              style={styles.picker}
-            >
-              {['BRL'].map((code) => (
-                <Picker.Item key={code} label={`${code} - ${currencies[code] ?? 'Real Brasileiro'}`} value={code} />
-              ))}
-            </Picker>
-          </View>
-
-          <TouchableOpacity style={styles.swapButton} onPress={swapCurrencies}>
-            <Text style={styles.swapButtonText}>⇄</Text>
-          </TouchableOpacity>
-
-          <View style={styles.pickerContainer}>
-            <Text style={styles.label}>Para:</Text>
-            <Picker
-              selectedValue={toCurrency}
-              onValueChange={(itemValue) => setToCurrency(itemValue)}
-              style={styles.picker}
-            >
-              {targetCurrencyKeys.map((code) => (
-                <Picker.Item key={code} label={`${code} - ${currencies[code]}`} value={code} />
-              ))}
-            </Picker>
-          </View>
+      <View style={styles.formCard}>
+        <Text style={styles.label}>
+          Valor em {currencies[fromCurrency] ?? fromCurrency}
+        </Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputPrefix}>{fromCurrency}</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="decimal-pad"
+            placeholder="100,00"
+            placeholderTextColor="#88a0c0"
+            value={amount}
+            onChangeText={setAmount}
+            accessibilityLabel="Valor a converter"
+          />
         </View>
-      )}
 
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-      {/* Botão de Converter */}
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={convertCurrency}
-        disabled={loading || loadingCurrencies}
-      >
-        {loading ? (
-          <ActivityIndicator color="#1e3a8a" />
+        {loadingCurrencies ? (
+          <View style={styles.currencyLoading}>
+            <ActivityIndicator size="small" color="#1e3a8a" />
+            <Text style={styles.infoText}>Carregando moedas...</Text>
+          </View>
+        ) : currencyCodes.length > 0 ? (
+          <View style={styles.currencyRow}>
+            <View style={styles.currencyCard}>
+              <Text style={styles.currencyLabel}>DE</Text>
+              <Picker
+                selectedValue={fromCurrency}
+                onValueChange={setFromCurrency}
+                style={styles.picker}
+                accessibilityLabel="Moeda de origem"
+              >
+                {currencyCodes.map((code) => (
+                  <Picker.Item
+                    key={code}
+                    label={`${code} - ${currencies[code]}`}
+                    value={code}
+                  />
+                ))}
+              </Picker>
+            </View>
+            <View style={styles.arrowContainer}>
+              <Text style={styles.arrow}>→</Text>
+            </View>
+            <View style={styles.currencyCard}>
+              <Text style={styles.currencyLabel}>PARA</Text>
+              <Picker
+                selectedValue={toCurrency}
+                onValueChange={setToCurrency}
+                style={styles.picker}
+                accessibilityLabel="Moeda de destino"
+              >
+                {currencyCodes.map((code) => (
+                  <Picker.Item
+                    key={code}
+                    label={`${code} - ${currencies[code]}`}
+                    value={code}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
         ) : (
-          <Text style={styles.buttonText}>Converter</Text>
+          <View style={styles.currencyLoading}>
+            <Text style={styles.errorText}>
+              {currencyError || 'Não foi possível carregar as moedas.'}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadCurrencies}>
+              <Text style={styles.retryText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
         )}
-      </TouchableOpacity>
 
-      {/* Resultado */}
-      {convertedValue !== null && (
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={convertCurrency}
+          disabled={loading || loadingCurrencies || currencyCodes.length < 2}
+          accessibilityRole="button"
+        >
+          {loading ? (
+            <ActivityIndicator color="#1e3a8a" />
+          ) : (
+            <Text style={styles.buttonText}>Converter</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {result && (
         <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>Resultado da Conversão:</Text>
-          <Text style={styles.resultText}>
-            {amount} {fromCurrency} =
+          <Text style={styles.resultEyebrow}>RESULTADO DA CONVERSÃO</Text>
+          <Text style={styles.resultCaption}>
+            {formatCurrency(result.amount, result.fromCurrency)} equivalem a
           </Text>
           <Text style={styles.resultValue}>
-            {convertedValue.toFixed(2)} {toCurrency}
+            {formatCurrency(result.convertedValue, result.toCurrency)}
           </Text>
-          <Text style={styles.infoText}>Taxa de Câmbio: 1 {fromCurrency} = {exchangeRate} {toCurrency}</Text>
-          <Text style={styles.infoText}>Data de Referência API: {rateDate}</Text>
+          <Text style={styles.infoText}>
+            1 {result.fromCurrency} = {result.rate.toFixed(4)} {result.toCurrency}
+          </Text>
+          <Text style={styles.infoText}>
+            Taxa de referência de {new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(
+              new Date(`${result.date}T00:00:00Z`),
+            )}
+          </Text>
+          <Text style={styles.infoText}>Não representa uma cotação em tempo real.</Text>
         </View>
       )}
     </ScrollView>
@@ -114,127 +160,189 @@ export function CurrencyConverterView() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#F8F9FA', 
     flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 36,
+    backgroundColor: '#F8F9FA',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  eyebrow: {
+    color: '#3B82F6',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 26,
+    color: '#1E3A8A',
+    fontSize: 30,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#1E3A8A', 
   },
   subtitle: {
-    fontSize: 13,
+    color: '#3B82F6',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
     textAlign: 'center',
-    color: '#3B82F6', 
-    marginBottom: 20,
   },
-  inputContainer: {
-    marginBottom: 15,
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+    shadowColor: '#93C5FD',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
     color: '#1E3A8A',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+  },
+  inputPrefix: {
+    color: '#1E3A8A',
+    fontSize: 18,
+    fontWeight: '700',
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#93C5FD', 
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 18,
     color: '#1E3A8A',
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  pickerContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1.5,
+    fontSize: 20,
+    borderWidth: 0,
+    outlineWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
+  },
+  currencyRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  currencyCard: {
+    backgroundColor: '#F8F9FA',
     borderColor: '#93C5FD',
-    overflow: 'hidden',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  currencyLabel: {
+    color: '#3B82F6',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   picker: {
     color: '#1E3A8A',
+    height: 48,
+    width: '100%',
   },
-  swapButton: {
-    paddingHorizontal: 12,
-    justifyContent: 'center',
+  currencyLoading: {
     alignItems: 'center',
-    backgroundColor: '#FEF08A', 
-    borderRadius: 8,
-    height: 50,
-    marginHorizontal: 8,
+    marginTop: 18,
   },
-  swapButtonText: {
+  retryButton: {
+    backgroundColor: '#FEF08A',
+    borderColor: '#FDE047',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  retryText: {
+    color: '#1E3A8A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  arrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  arrow: {
+    color: '#1E3A8A',
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1E3A8A', 
+    fontWeight: '700',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 14,
+    textAlign: 'center',
   },
   button: {
-    backgroundColor: '#FEF08A', 
-    padding: 15,
-    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 1,
+    backgroundColor: '#FEF08A',
     borderColor: '#FDE047',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 20,
+    padding: 15,
   },
   buttonDisabled: {
     backgroundColor: '#FEF9C3',
   },
   buttonText: {
-    color: '#1E3A8A', 
-    fontSize: 18,
+    color: '#1E3A8A',
+    fontSize: 17,
     fontWeight: 'bold',
   },
-  errorText: {
-    color: '#DC2626',
-    textAlign: 'center',
-    marginVertical: 10,
-    fontWeight: '600',
-  },
   resultCard: {
-    marginTop: 25,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#FEF08A',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FEF08A',
+    borderRadius: 18,
+    borderWidth: 2,
+    marginTop: 22,
+    padding: 22,
     shadowColor: '#93C5FD',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 3,
   },
-  resultTitle: {
-    fontSize: 14,
+  resultEyebrow: {
     color: '#3B82F6',
-    marginBottom: 5,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
-  resultText: {
-    fontSize: 16,
+  resultCaption: {
     color: '#1E3A8A',
-    fontWeight: '600',
+    fontSize: 15,
+    marginTop: 16,
+    textAlign: 'center',
   },
   resultValue: {
-    fontSize: 28,
+    color: '#1E3A8A',
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#1E3A8A', 
-    marginVertical: 8,
+    marginTop: 6,
+    textAlign: 'center',
   },
   infoText: {
-    fontSize: 12,
     color: '#4B5563',
-    marginTop: 3,
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

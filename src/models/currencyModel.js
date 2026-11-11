@@ -1,62 +1,68 @@
-const BASE_URL = 'https://api.frankfurter.dev/v1';
+const BASE_URL = 'https://api.frankfurter.dev/v2';
+
+async function fetchJson(url, operation) {
+  let response;
+
+  try {
+    response = await fetch(url);
+  } catch {
+    throw new Error(`Não foi possível conectar à Frankfurter ao ${operation}. Verifique sua conexão e tente novamente.`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`A Frankfurter retornou um erro HTTP ${response.status} ao ${operation}.`);
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(`A Frankfurter retornou uma resposta inválida ao ${operation}.`);
+  }
+}
 
 export const currencyModel = {
-  
   async getCurrencies() {
-    try {
-      const response = await fetch(`${BASE_URL}/currencies`);
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
-      }
+    const data = await fetchJson(`${BASE_URL}/currencies`, 'carregar as moedas');
 
-      const data = await response.json();
-      const formattedCurrencies = {};
-
-      if (Array.isArray(data)) {
-        data.forEach((item) => {
-          const code = item.code ?? item.iso_code ?? item.currency;
-          const name = item.name ?? item.currency_name ?? item.label;
-
-          if (code) {
-            formattedCurrencies[code] = name ?? code;
-          }
-        });
-      } else if (data && typeof data === 'object') {
-        Object.entries(data).forEach(([code, name]) => {
-          formattedCurrencies[code] = typeof name === 'string' ? name : code;
-        });
-      }
-
-      return formattedCurrencies;
-    } catch (error) {
-      throw new Error('Não foi possível carregar a lista de moedas.');
+    if (!Array.isArray(data)) {
+      throw new Error('A lista de moedas recebida da Frankfurter é inválida.');
     }
+
+    const currencies = {};
+
+    data.forEach((item) => {
+      if (
+        item?.type === 'currency' &&
+        typeof item.iso_code === 'string' &&
+        typeof item.name === 'string'
+      ) {
+        currencies[item.iso_code] = item.name;
+      }
+    });
+
+    if (Object.keys(currencies).length === 0) {
+      throw new Error('A Frankfurter não retornou moedas disponíveis.');
+    }
+
+    return currencies;
   },
 
-
   async getExchangeRate(fromCurrency, toCurrency) {
-    try {
-      const response = await fetch(`${BASE_URL}/latest?from=${encodeURIComponent(fromCurrency)}&to=${encodeURIComponent(toCurrency)}`);
-      if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
-      }
+    const url = `${BASE_URL}/rate/${encodeURIComponent(fromCurrency)}/${encodeURIComponent(toCurrency)}`;
+    const data = await fetchJson(url, 'consultar a taxa de câmbio');
 
-      const data = await response.json();
-      const rate = data?.rates?.[toCurrency];
-
-      if (typeof rate !== 'number') {
-        throw new Error('Taxa de câmbio não encontrada para a conversão informada.');
-      }
-
-      return {
-        ...data,
-        rates: {
-          ...(data?.rates ?? {}),
-          [toCurrency]: rate,
-        },
-      };
-    } catch (error) {
-      throw new Error('Não foi possível obter a taxa de câmbio.');
+    if (
+      data?.base !== fromCurrency ||
+      data?.quote !== toCurrency ||
+      typeof data?.date !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(data.date) ||
+      typeof data?.rate !== 'number' ||
+      !Number.isFinite(data.rate) ||
+      data.rate <= 0
+    ) {
+      throw new Error('A Frankfurter retornou dados inválidos para esta conversão.');
     }
+
+    return data;
   },
 };

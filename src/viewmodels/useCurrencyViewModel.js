@@ -1,120 +1,173 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { currencyModel } from '../models/currencyModel';
 
+function parseAmount(value) {
+  const normalizedValue = value.trim().replace(',', '.');
+
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalizedValue)) {
+    return null;
+  }
+
+  const numericValue = Number(normalizedValue);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+}
+
 export function useCurrencyViewModel() {
-  const allowedCurrencies = ['BRL', 'CNY', 'EUR'];
   const [amount, setAmount] = useState('');
-  const [fromCurrency, setFromCurrency] = useState('BRL'); 
-  const [toCurrency, setToCurrency] = useState('CNY');     
+  const [fromCurrency, setFromCurrency] = useState('BRL');
+  const [toCurrency, setToCurrency] = useState('CNY');
   const [currencies, setCurrencies] = useState({});
-
-  const availableCurrencies = Object.fromEntries(
-    Object.entries(currencies).filter(([code]) => allowedCurrencies.includes(code)),
-  );
-
-  const [convertedValue, setConvertedValue] = useState(null);
-  const [exchangeRate, setExchangeRate] = useState(null);
-  const [rateDate, setRateDate] = useState('');
-
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingCurrencies, setLoadingCurrencies] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [currencyError, setCurrencyError] = useState('');
+  const conversionRequestId = useRef(0);
+  const currenciesRequestId = useRef(0);
 
+  const loadCurrencies = useCallback(async () => {
+    const requestId = currenciesRequestId.current + 1;
+    currenciesRequestId.current = requestId;
+    setLoadingCurrencies(true);
+    setCurrencyError('');
 
-  useEffect(() => {
-    async function loadCurrencies() {
-      try {
-        setLoadingCurrencies(true);
-        const data = await currencyModel.getCurrencies();
-        setCurrencies(data);
-      } catch (err) {
-        setErrorMessage(err.message);
-      } finally {
+    try {
+      const availableCurrencies = await currencyModel.getCurrencies();
+
+      if (currenciesRequestId.current !== requestId) return;
+
+      const currencyCodes = Object.keys(availableCurrencies);
+      const defaultFromCurrency = currencyCodes.includes('BRL') ? 'BRL' : currencyCodes[0];
+      const defaultToCurrency =
+        currencyCodes.includes('CNY')
+          ? 'CNY'
+          : currencyCodes.find((code) => code !== defaultFromCurrency) ?? defaultFromCurrency;
+      setCurrencies(availableCurrencies);
+      setFromCurrency(defaultFromCurrency);
+      setToCurrency(defaultToCurrency);
+    } catch (error) {
+      if (currenciesRequestId.current === requestId) {
+        setCurrencyError(error.message);
+      }
+    } finally {
+      if (currenciesRequestId.current === requestId) {
         setLoadingCurrencies(false);
       }
     }
-    loadCurrencies();
   }, []);
 
+  useEffect(() => {
+    loadCurrencies();
 
-  const validateInputs = () => {
-    if (!amount || amount.trim() === '') {
-      setErrorMessage('Por favor, informe o valor a ser convertido.');
-      return false;
+    return () => {
+      currenciesRequestId.current += 1;
+      conversionRequestId.current += 1;
+    };
+  }, [loadCurrencies]);
+
+  const clearConversion = () => {
+    conversionRequestId.current += 1;
+    setResult(null);
+    setErrorMessage('');
+    setLoading(false);
+  };
+
+  const handleAmountChange = (value) => {
+    clearConversion();
+    setAmount(value);
+  };
+
+  const handleFromCurrencyChange = (currency) => {
+    clearConversion();
+    setFromCurrency(currency);
+  };
+
+  const handleToCurrencyChange = (currency) => {
+    clearConversion();
+    setToCurrency(currency);
+  };
+
+  const convertCurrency = async () => {
+    const numericAmount = parseAmount(amount);
+
+    if (numericAmount === null) {
+      setResult(null);
+      setErrorMessage(
+        amount.trim()
+          ? 'Informe um número maior que zero, usando apenas uma vírgula ou um ponto decimal.'
+          : 'Por favor, informe o valor a ser convertido.',
+      );
+      return;
     }
 
-    const normalizedAmount = amount.replace(',', '.');
-    const numericAmount = parseFloat(normalizedAmount);
-
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      setErrorMessage('O valor deve ser um número maior que zero.');
-      return false;
-    }
-
-    if (fromCurrency !== 'BRL') {
-      setErrorMessage('A conversão permitida é somente de BRL para CNY ou EUR.');
-      return false;
-    }
-
-    if (!toCurrency || !['CNY', 'EUR'].includes(toCurrency)) {
-      setErrorMessage('Selecione apenas CNY ou EUR como destino.');
-      return false;
+    if (!fromCurrency || !toCurrency) {
+      setErrorMessage('Selecione as moedas de origem e destino.');
+      return;
     }
 
     if (fromCurrency === toCurrency) {
       setErrorMessage('As moedas de origem e destino devem ser diferentes.');
-      return false;
+      return;
     }
 
-    setErrorMessage('');
-    return true;
-  };
-
-
-  const convertCurrency = async () => {
-    if (!validateInputs()) return;
+    const requestId = conversionRequestId.current + 1;
+    conversionRequestId.current = requestId;
+    const requestedAmount = numericAmount;
+    const requestedFromCurrency = fromCurrency;
+    const requestedToCurrency = toCurrency;
 
     setLoading(true);
-    setConvertedValue(null);
+    setResult(null);
+    setErrorMessage('');
 
     try {
-      const data = await currencyModel.getExchangeRate(fromCurrency, toCurrency);
-      
-      const rate = data.rates[toCurrency];
-      const numericAmount = parseFloat(amount.replace(',', '.'));
-      const result = numericAmount * rate;
+      const rateData = await currencyModel.getExchangeRate(
+        requestedFromCurrency,
+        requestedToCurrency,
+      );
 
-      setExchangeRate(rate);
-      setRateDate(data.date);
-      setConvertedValue(result);
-      setErrorMessage('');
-    } catch (err) {
-      setErrorMessage(err.message);
+      if (conversionRequestId.current !== requestId) return;
+
+      const convertedValue = requestedAmount * rateData.rate;
+
+      if (!Number.isFinite(convertedValue)) {
+        setErrorMessage('O valor informado é grande demais para realizar esta conversão.');
+        return;
+      }
+
+      setResult({
+        amount: requestedAmount,
+        fromCurrency: requestedFromCurrency,
+        toCurrency: requestedToCurrency,
+        rate: rateData.rate,
+        date: rateData.date,
+        convertedValue,
+      });
+    } catch (error) {
+      if (conversionRequestId.current === requestId) {
+        setErrorMessage(error.message);
+      }
     } finally {
-      setLoading(false);
+      if (conversionRequestId.current === requestId) {
+        setLoading(false);
+      }
     }
-  };
-
-
-  const swapCurrencies = () => {
-    setToCurrency((current) => (current === 'CNY' ? 'EUR' : 'CNY'));
   };
 
   return {
     amount,
-    setAmount,
+    setAmount: handleAmountChange,
     fromCurrency,
-    setFromCurrency,
+    setFromCurrency: handleFromCurrencyChange,
     toCurrency,
-    setToCurrency,
-    currencies: availableCurrencies,
-    convertedValue,
-    exchangeRate,
-    rateDate,
+    setToCurrency: handleToCurrencyChange,
+    currencies,
+    result,
     loading,
     loadingCurrencies,
     errorMessage,
+    currencyError,
+    loadCurrencies,
     convertCurrency,
-    swapCurrencies,
   };
 }
