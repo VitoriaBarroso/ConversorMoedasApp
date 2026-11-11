@@ -1,56 +1,25 @@
-# Welcome to your Expo app 👋
+# Conversor de Moedas — React Native (MVVM)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo mobile para consulta de taxas de câmbio e conversão de moedas em tempo real, desenvolvido em **React Native** utilizando a arquitetura **MVVM (Model-View-ViewModel)** e consumindo dados da API pública **Frankfurter**.
 
-## Get started
+<img width="288" height="572" alt="image" src="https://github.com/user-attachments/assets/c7c4fe16-12a6-4833-96b6-3f9365c3614a" />
+<img width="317" height="583" alt="image" src="https://github.com/user-attachments/assets/bdba7db2-58e9-4d35-bef0-e8a45f08708e" />
+caso tente fazer a conversão de duas moedas iguais
+<img width="284" height="580" alt="image" src="https://github.com/user-attachments/assets/732841be-5d85-416d-8f25-f26eb888b7b3" />
 
-1. Install dependencies
 
-   ```bash
-   npm install
-   ```
 
-2. Start the app
+- **React Native** com **Expo**
+- **JavaScript (ES6+)**
+- **React Hooks** (`useState`, `useEffect`)
+- **API Frankfurter** (Consulta de taxas e moedas)
+- **Axios** / **Fetch API**
 
-   ```bash
-   npx expo start
-   ```
+##  Arquitetura MVVM
 
-In the output, you'll find options to open the app in a
+O projeto foi estruturado utilizando o padrão de arquitetura **MVVM (Model-View-ViewModel)** para garantir a separação clara de responsabilidades:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- **Model (`src/models/`):** Camada responsável pela comunicação direta com a API Frankfurter e tratamento dos dados brutos de entrada/saída.
+- **View (`src/views/`):** Componentes visuais e telas do aplicativo. Apresenta as informações ao usuário e captura as ações de entrada sem conter regras de negócio.
+- **ViewModel (`src/viewmodels/`):** Hook personalizado que gerencia os estados do React, executa validações de dados, coordena as chamadas do Model e disponibiliza os dados prontos para a View.
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
