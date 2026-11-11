@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import {ActivityIndicator,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useCurrencyViewModel } from '../viewmodels/useCurrencyViewModel';
 
@@ -42,7 +34,7 @@ export function CurrencyConverterView() {
       <View style={styles.header}>
         <Text style={styles.eyebrow}>CONVERSOR DE MOEDAS</Text>
         <Text style={styles.title}>Conversor de moedas</Text>
-        <Text style={styles.subtitle}>Consulte taxas de referência da Frankfurter.</Text>
+      
       </View>
 
       <View style={styles.formCard}>
@@ -146,12 +138,7 @@ export function CurrencyConverterView() {
           <Text style={styles.infoText}>
             1 {result.fromCurrency} = {result.rate.toFixed(4)} {result.toCurrency}
           </Text>
-          <Text style={styles.infoText}>
-            Taxa de referência de {new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(
-              new Date(`${result.date}T00:00:00Z`),
-            )}
-          </Text>
-          <Text style={styles.infoText}>Não representa uma cotação em tempo real.</Text>
+         
         </View>
       )}
     </ScrollView>
